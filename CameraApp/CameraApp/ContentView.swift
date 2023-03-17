@@ -100,12 +100,13 @@ struct CameraView: View {
                         .clipShape(Capsule())
                         .fontWeight(.semibold)
                         
-                        Text(camera.filterName)
+                        /*Text(camera.filterName)
                             .foregroundColor(.white)
                             .fontWeight(.semibold)
-                            .padding(.horizontal)
+                            .padding(.horizontal)*/
                     }
-                }                    else {
+                }
+                    else {
                         Button(action: camera.takePic, label: {
                             ZStack {
                                 Circle().fill(Color.white).frame(width:65,height: 65)
@@ -226,12 +227,9 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
             print(self)
             self.session.stopRunning()*/
             
-            // Check if the session is running
-                    if self.session.isRunning {
-                        self.output.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
-                        print(self)
-                        self.session.stopRunning()
-                    }
+            let settings = AVCapturePhotoSettings()
+            self.output.capturePhoto(with: settings, delegate: self)
+            
             DispatchQueue.main.async {
                 withAnimation{self.isTaken.toggle()}
             }
@@ -251,19 +249,26 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     }
     
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        if error != nil {
-            print("blah")
-            return
-        }
-        print("pic taken...")
+        if let error = error {
+                print("Error capturing photo: \(error)")
+                return
+            }
+            
+            guard let imageData = photo.fileDataRepresentation() else {
+                print("Error converting photo to data")
+                return
+            }
+            
+            self.picData = imageData
+            print("pic taken...")
         
-        guard let imageData = photo.fileDataRepresentation() else{return}
+            DispatchQueue.global(qos: .background).async {
+                self.session.stopRunning()
+            }
         
-        self.picData = imageData
     }
     
     func savePic(){
-//        let image = UIImage(data: self.picData)
         if let image = UIImage(data: self.picData)  {
             UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
             self.isSaved = true
