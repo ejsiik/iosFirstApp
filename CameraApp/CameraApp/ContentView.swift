@@ -109,13 +109,6 @@ struct CameraView: View {
                             }, label: {
                                 Text("Blur")
                             })
-                            Button(action: {
-                                //camera.filterName = "None"
-                                camera.savePic()
-                                
-                            }, label: {
-                                Text("No filter")
-                            })
                         } label: {
                             Label(
                                 title: { Text("Filters") },
@@ -359,10 +352,18 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     func sepiaFilter() {
         filterName = "sepia"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
-            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+            //UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
             self.picData = image.pngData()! // picData is now filtered!!!
-            self.isSaved = true
-            print("saved Sucessfully...")
+            //self.isSaved = true
+            print("sepia")
+            if var image = UIImage(data: self.picData) {
+                // Rotate image by 90 degrees clockwise
+                image = UIImage(cgImage: image.cgImage!, scale: image.scale, orientation: .right)
+                // Update picData with rotated image data
+                if let rotatedImageData = image.jpegData(compressionQuality: 1.0) {
+                    self.picData = rotatedImageData
+                }
+            }
         } else {
             print("Failed to save image: Invalid data")
             print(self.picData)
@@ -374,9 +375,21 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     func blurFilter() {
         filterName = "blur"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
-            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-            self.isSaved = true
-            print("saved Sucessfully...")
+            //UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+            //self.isSaved = true
+            //print("saved Sucessfully...")
+            self.picData = image.pngData()! // picData is now filtered!!!
+            //self.isSaved = true
+            print("blur")
+            if var image = UIImage(data: self.picData) {
+                // Rotate image by 90 degrees clockwise
+                image = UIImage(cgImage: image.cgImage!, scale: image.scale, orientation: .right)
+                // Update picData with rotated image data
+                if let rotatedImageData = image.jpegData(compressionQuality: 1.0) {
+                    self.picData = rotatedImageData
+                }
+            }
+        
         } else {
             print("Failed to save image: Invalid data")
             print(self.picData)
@@ -386,9 +399,20 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     func colorFilter() {
         filterName = "color"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
-            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-            self.isSaved = true
-            print("saved Sucessfully...")
+            //UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+            //self.isSaved = true
+            //print("saved Sucessfully...")
+            self.picData = image.pngData()! // picData is now filtered!!!
+            //self.isSaved = true
+            print("color")
+            if var image = UIImage(data: self.picData) {
+                // Rotate image by 90 degrees clockwise
+                image = UIImage(cgImage: image.cgImage!, scale: image.scale, orientation: .right)
+                // Update picData with rotated image data
+                if let rotatedImageData = image.jpegData(compressionQuality: 1.0) {
+                    self.picData = rotatedImageData
+                }
+            }
         } else {
             print("Failed to save image: Invalid data")
             print(self.picData)
