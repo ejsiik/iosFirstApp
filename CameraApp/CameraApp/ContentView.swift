@@ -1,7 +1,8 @@
 import SwiftUI
 import AVFoundation
+import CoreImage
 
-// to Info.plist
+// add to Info.plist
 
 // Privacy - Photo Library Usage Description
 // Privacy - Camera Usage Description
@@ -59,6 +60,34 @@ struct CameraView: View {
                         .padding(.leading)
                         
                         Spacer()
+                        HStack {
+                            Menu {
+                                Button(action: {camera.sepiaFilter()},
+                                       label: {
+                                    Text("Sepia")
+                                })
+                                Button(action: {camera.colorFilter()},
+                                       label: {
+                                    Text("Color Invert")
+                                })
+                                Button(action: {camera.blurFilter()}, label: {
+                                    Text("Blur")
+                                })
+                                Button(action: {camera.savePic()}, label: {
+                                    Text("No filter")
+                                })
+                            } label: {
+                                Label(
+                            title: {Text("Filters")},
+                            icon: {Image(systemName: "plus")})
+                            }
+                                .padding(.vertical,10)
+                                .padding(.horizontal,20)
+                                .foregroundColor(.black)
+                                .background(Color.white)
+                                .clipShape(Capsule())
+                                .fontWeight(.semibold)
+                        }
                     }
                     else {
                         Button(action: camera.takePic, label: {
@@ -68,8 +97,8 @@ struct CameraView: View {
                             }
                         })
                     }
+                    
                 }.frame(height: 75)
-                
             }
         }
         .onAppear(perform: {
@@ -77,6 +106,7 @@ struct CameraView: View {
         })
     }
 }
+
 
 class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     
@@ -96,6 +126,9 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var isSaved = false
     
     @Published var picData = Data(count: 0)
+    
+    @Published var filterName = "no"
+         
     
     func Check(){
         
@@ -205,7 +238,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     
     func savePic(){
 //        let image = UIImage(data: self.picData)
-        if let image = UIImage(data: self.picData) {
+        if let image = UIImage(data: self.picData)  {
             UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
             self.isSaved = true
             print("saved Sucessfully...")
@@ -214,6 +247,71 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
             print(self.picData)
         }
 
+    }
+    
+    func applyFilter(to image: UIImage) -> UIImage? {
+        var filter = CIFilter(name: "CISepiaTone")
+        guard let cgImage = image.cgImage else { return nil }
+        let ciImage = CIImage(cgImage: cgImage)
+
+        // Apply filter
+        switch(filterName) {
+        case "sepia":
+            filter = CIFilter(name: "CISepiaTone")
+        case "color":
+            filter = CIFilter(name: "CIColorInvert")
+        case "blur":
+            filter = CIFilter(name: "CIGaussianBlur")
+        default :
+            print("No filter")
+        }
+        
+        filter?.setValue(ciImage, forKey: kCIInputImageKey)
+//        filter?.setValue(0.8, forKey: kCIInputIntensityKey)
+        guard let outputCIImage = filter?.outputImage else { return nil }
+
+        // Convert CIImage to UIImage
+        let context = CIContext()
+        guard let outputCGImage = context.createCGImage(outputCIImage, from: outputCIImage.extent) else { return nil }
+        let outputImage = UIImage(cgImage: outputCGImage, scale: image.scale, orientation: image.imageOrientation)
+
+        return outputImage
+    }
+    // save to be changed... photos are being saved with previous filter
+    func sepiaFilter() {
+        if let image = applyFilter(to: UIImage(data: self.picData)!) {
+            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+            self.isSaved = true
+            print("saved Sucessfully...")
+            filterName = "sepia"
+        } else {
+            print("Failed to save image: Invalid data")
+            print(self.picData)
+        }
+    }
+    
+    func blurFilter() {
+        if let image = applyFilter(to: UIImage(data: self.picData)!) {
+            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+            self.isSaved = true
+            print("saved Sucessfully...")
+            filterName = "blur"
+        } else {
+            print("Failed to save image: Invalid data")
+            print(self.picData)
+        }
+    }
+    
+    func colorFilter() {
+        if let image = applyFilter(to: UIImage(data: self.picData)!) {
+            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+            self.isSaved = true
+            print("saved Sucessfully...")
+            filterName = "color"
+        } else {
+            print("Failed to save image: Invalid data")
+            print(self.picData)
+        }
     }
 }
     
