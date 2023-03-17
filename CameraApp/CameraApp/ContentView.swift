@@ -61,35 +61,51 @@ struct CameraView: View {
                         
                         Spacer()
                         HStack {
-                            Menu {
-                                Button(action: {camera.sepiaFilter()},
-                                       label: {
-                                    Text("Sepia")
-                                })
-                                Button(action: {camera.colorFilter()},
-                                       label: {
-                                    Text("Color Invert")
-                                })
-                                Button(action: {camera.blurFilter()}, label: {
-                                    Text("Blur")
-                                })
-                                Button(action: {camera.savePic()}, label: {
-                                    Text("No filter")
-                                })
-                            } label: {
-                                Label(
-                            title: {Text("Filters")},
-                            icon: {Image(systemName: "plus")})
-                            }
-                                .padding(.vertical,10)
-                                .padding(.horizontal,20)
-                                .foregroundColor(.black)
-                                .background(Color.white)
-                                .clipShape(Capsule())
-                                .fontWeight(.semibold)
+                        Menu {
+                            Button(action: {
+                                //camera.filterName = "Sepia"
+                                camera.sepiaFilter()
+                            }, label: {
+                                Text("Sepia")
+                            })
+                            Button(action: {
+                                //camera.filterName = "Color Invert"
+                                camera.colorFilter()
+                            }, label: {
+                                Text("Color Invert")
+                            })
+                            Button(action: {
+                                //camera.filterName = "Blur"
+                                camera.blurFilter()
+                            }, label: {
+                                Text("Blur")
+                            })
+                            Button(action: {
+                                //camera.filterName = "None"
+                                camera.savePic()
+                                
+                            }, label: {
+                                Text("No filter")
+                            })
+                        } label: {
+                            Label(
+                                title: { Text("Filters") },
+                                icon: { Image(systemName: "plus") }
+                            )
                         }
+                        .padding(.vertical,10)
+                        .padding(.horizontal,20)
+                        .foregroundColor(.black)
+                        .background(Color.white)
+                        .clipShape(Capsule())
+                        .fontWeight(.semibold)
+                        
+                        Text(camera.filterName)
+                            .foregroundColor(.white)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal)
                     }
-                    else {
+                }                    else {
                         Button(action: camera.takePic, label: {
                             ZStack {
                                 Circle().fill(Color.white).frame(width:65,height: 65)
@@ -131,7 +147,6 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
          
     
     func Check(){
-        
         //first checking camera has got permission...
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -147,12 +162,18 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                 }
             }
         case .denied:
-            self.alert.toggle()
-            return
+            DispatchQueue.main.async {
+                    if let url = URL(string:UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                    }
+                }
+                break
         default:
             return
         }
     }
+    
+    
     func setUp(){
         
         // setting up camera...
@@ -201,11 +222,16 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         
     func takePic(){
         DispatchQueue.global(qos: .background).async {
-            self.output.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
-            // nie tykac printa
+            /*self.output.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
             print(self)
-            self.session.stopRunning()
+            self.session.stopRunning()*/
             
+            // Check if the session is running
+                    if self.session.isRunning {
+                        self.output.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
+                        print(self)
+                        self.session.stopRunning()
+                    }
             DispatchQueue.main.async {
                 withAnimation{self.isTaken.toggle()}
             }
@@ -277,7 +303,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
 
         return outputImage
     }
-    // save to be changed... photos are being saved with previous filter
+
     func sepiaFilter() {
         filterName = "sepia"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
