@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import CoreImage
+import UIKit
 
 // add to Info.plist
 
@@ -23,6 +24,9 @@ struct ContentView_Previews: PreviewProvider {
 
 struct CameraView: View {
     @StateObject var camera = CameraModel()
+    @State var items : [Any] = []
+    @State var sheet = false
+        
     var body: some View {
         ZStack {
             //camera preview
@@ -33,7 +37,6 @@ struct CameraView: View {
                 if camera.isTaken{
                     HStack {
                         Spacer()
-                        
                         Button(action: camera.reTake, label: {
                             Image(systemName: "arrow.triangle.2.circlepath.camera")
                                 .foregroundColor(.black)
@@ -48,18 +51,44 @@ struct CameraView: View {
                 HStack {
                     // if taken showing save and again take button
                     if camera.isTaken{
+                        // share image
+                        VStack {
+                            Button(action: {
+                                items.removeAll()
+                                items.append(camera.returnPhoto())
+                                sheet.toggle()
+                            }, label: {
+                                Text("Share")
+                                    .foregroundColor(.black)
+                                    .padding()
+                                    .fontWeight(.semibold)
+                                    .background(Color.white)
+                                    .clipShape(Capsule())
+                                    .padding(.vertical,10)
+                                    .padding(.horizontal,10)
+                            })
+                        }.sheet(isPresented: $sheet, content: {
+                            ShareSheet(items: items)
+                        })
+                        
+                        Spacer()
+                        
                         Button(action: {if !camera.isSaved{camera.savePic()}}, label: {
                             Text(camera.isSaved ? "Saved" : "Save")
                                 .foregroundColor(.black)
                                 .fontWeight(.semibold)
                                 .padding(.vertical,10)
-                                .padding(.horizontal,20)
+                                .padding(.horizontal,10)
                                 .background(Color.white)
                                 .clipShape(Capsule())
+                                .padding()
+                                .font(.system(size: 25))
+                            
                         })
-                        .padding(.leading)
+//                        .padding(.leading)
                         
                         Spacer()
+                        
                         HStack {
                         Menu {
                             Button(action: {
@@ -94,11 +123,12 @@ struct CameraView: View {
                             )
                         }
                         .padding(.vertical,10)
-                        .padding(.horizontal,20)
+                        .padding(.horizontal,10)
                         .foregroundColor(.black)
                         .background(Color.white)
                         .clipShape(Capsule())
                         .fontWeight(.semibold)
+
                         
                         /*Text(camera.filterName)
                             .foregroundColor(.white)
@@ -121,6 +151,19 @@ struct CameraView: View {
         .onAppear(perform: {
             camera.Check()
         })
+    }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    // data you need to share
+    var items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
     }
 }
 
@@ -280,6 +323,10 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
 
     }
     
+    func returnPhoto() -> UIImage {
+        return UIImage(data: self.picData)!
+    }
+    
     func applyFilter(to image: UIImage) -> UIImage? {
         var filter = CIFilter(name: "CISepiaTone")
         guard let cgImage = image.cgImage else { return nil }
@@ -313,12 +360,15 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         filterName = "sepia"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
             UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+            self.picData = image.pngData()! // picData is now filtered!!!
             self.isSaved = true
             print("saved Sucessfully...")
         } else {
             print("Failed to save image: Invalid data")
             print(self.picData)
         }
+        
+        // self.picData = applyFilter(to: UIImage(data: self.picData)!)
     }
     
     func blurFilter() {
