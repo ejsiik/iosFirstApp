@@ -279,11 +279,11 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     }
     // save to be changed... photos are being saved with previous filter
     func sepiaFilter() {
+        filterName = "sepia"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
             UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
             self.isSaved = true
             print("saved Sucessfully...")
-            filterName = "sepia"
         } else {
             print("Failed to save image: Invalid data")
             print(self.picData)
@@ -291,11 +291,11 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     }
     
     func blurFilter() {
+        filterName = "blur"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
             UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
             self.isSaved = true
             print("saved Sucessfully...")
-            filterName = "blur"
         } else {
             print("Failed to save image: Invalid data")
             print(self.picData)
@@ -303,11 +303,11 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     }
     
     func colorFilter() {
+        filterName = "color"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
             UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
             self.isSaved = true
             print("saved Sucessfully...")
-            filterName = "color"
         } else {
             print("Failed to save image: Invalid data")
             print(self.picData)
