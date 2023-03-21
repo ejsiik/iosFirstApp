@@ -26,6 +26,7 @@ struct CameraView: View {
     @StateObject var camera = CameraModel()
     @State var items : [Any] = []
     @State var sheet = false
+    @State private var isLoading = false
         
     var body: some View {
         ZStack {
@@ -54,11 +55,14 @@ struct CameraView: View {
                         // share image
                         VStack {
                             Button(action: {
+                                isLoading = true
                                 items.removeAll()
                                 items.append(camera.returnPhoto())
+                                isLoading = false // Set isLoading to false after photo is loaded
                                 sheet.toggle()
                             }, label: {
-                                Text("Share")
+                                //Text("Share")
+                                Image(systemName: "square.and.arrow.up")
                                     .foregroundColor(.black)
                                     .padding()
                                     .fontWeight(.semibold)
@@ -67,9 +71,13 @@ struct CameraView: View {
                                     .padding(.vertical,10)
                                     .padding(.horizontal,10)
                             })
-                        }.sheet(isPresented: $sheet, content: {
+                        }
+                        .sheet(isPresented: $sheet, content: {
                             ShareSheet(items: items)
                         })
+                        .overlay(
+                            isLoading ? ProgressView() : nil
+                        )
                         
                         Spacer()
                         
@@ -111,22 +119,15 @@ struct CameraView: View {
                             })
                         } label: {
                             Label(
-                                title: { Text("Filters") },
+                                title: {  },
                                 icon: { Image(systemName: "plus") }
-                            )
+                            ).padding(.vertical,10)
+                                .padding(.horizontal,10)
+                                .foregroundColor(.black)
+                                .background(Color.white)
+                                .clipShape(Capsule())
+                                .fontWeight(.semibold)
                         }
-                        .padding(.vertical,10)
-                        .padding(.horizontal,10)
-                        .foregroundColor(.black)
-                        .background(Color.white)
-                        .clipShape(Capsule())
-                        .fontWeight(.semibold)
-
-                        
-                        /*Text(camera.filterName)
-                            .foregroundColor(.white)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal)*/
                     }
                 }
                     else {
@@ -436,9 +437,9 @@ struct CameraPreview: UIViewRepresentable {
         }
         // starting session
         //camera.session.startRunning()
-        DispatchQueue.global(qos: .background).async {
+        //DispatchQueue.global(qos: .background).async {
             camera.session.startRunning()
-        }
+        //}
         
         return view
     }
