@@ -53,7 +53,6 @@ struct CameraView: View {
                     // if taken showing save and again take button
                     if camera.isTaken{
                         // share image
-                        VStack {
                             Button(action: {
                                 isLoading = true
                                 items.removeAll()
@@ -61,7 +60,6 @@ struct CameraView: View {
                                 isLoading = false // Set isLoading to false after photo is loaded
                                 sheet.toggle()
                             }, label: {
-                                //Text("Share")
                                 Image(systemName: "square.and.arrow.up")
                                     .foregroundColor(.black)
                                     .padding()
@@ -69,9 +67,8 @@ struct CameraView: View {
                                     .background(Color.white)
                                     .clipShape(Capsule())
                                     .padding(.vertical,10)
-                                    .padding(.horizontal,10)
+                                    .padding(.horizontal,20)
                             })
-                        }
                         .sheet(isPresented: $sheet, content: {
                             ShareSheet(items: items)
                         })
@@ -79,6 +76,7 @@ struct CameraView: View {
                             isLoading ? ProgressView() : nil
                         )
                         
+                        Spacer()
                         Spacer()
                         
                         Button(action: {if !camera.isSaved{camera.savePic()}}, label: {
@@ -93,10 +91,9 @@ struct CameraView: View {
                                 .font(.system(size: 25))
                             
                         })
-//                        .padding(.leading)
-                        
                         Spacer()
-                        
+                        Spacer()
+
                         HStack {
                         Menu {
                             Button(action: {
@@ -121,22 +118,26 @@ struct CameraView: View {
                             Label(
                                 title: {  },
                                 icon: { Image(systemName: "plus") }
-                            ).padding(.vertical,10)
-                                .padding(.horizontal,10)
+                            ).padding(.vertical,20)
+                                .padding(.horizontal,20)
                                 .foregroundColor(.black)
                                 .background(Color.white)
                                 .clipShape(Capsule())
                                 .fontWeight(.semibold)
+                                .padding()
                         }
+                        
                     }
                 }
                     else {
+                        Spacer()
                         Button(action: camera.takePic, label: {
                             ZStack {
                                 Circle().fill(Color.white).frame(width:65,height: 65)
                                 Circle().stroke(Color.white,lineWidth: 2).frame(width:75,height: 75)
                             }
                         })
+                        Spacer()
                     }
                     
                 }.frame(height: 75)
