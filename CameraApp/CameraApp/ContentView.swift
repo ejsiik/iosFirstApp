@@ -28,18 +28,18 @@ struct CameraView: View {
     @State var sheet = false
     @State private var isLoading = false
     @State private var displayCapturedImage = false // to check if it is still rendered
-
+    
     var body: some View {
         ZStack {
             CameraPreview(camera: camera)
-                    .ignoresSafeArea(.all)
-                    .opacity(camera.isTaken ? 0.0 : 1.0)
+                .ignoresSafeArea(.all)
+                .opacity(camera.isTaken ? 0.0 : 1.0)
             
             if camera.isTaken && displayCapturedImage {
                 Image(uiImage: UIImage(data: camera.picData) ?? UIImage())
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .ignoresSafeArea()
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .ignoresSafeArea()
             } else {
                 if let image = camera.returnBackgroundImage() {
                     Image(uiImage: image)
@@ -48,7 +48,7 @@ struct CameraView: View {
                         .ignoresSafeArea()
                 }
             }
-
+            
             VStack {
                 if camera.isTaken {
                     HStack {
@@ -61,9 +61,8 @@ struct CameraView: View {
                             Image(systemName: "arrow.triangle.2.circlepath.camera")
                                 .foregroundColor(.black)
                                 .padding()
-                                .background(Color.white)
-                                .clipShape(Circle())
-                        }).padding(.trailing, 10)
+                                .background(Circle().fill(Color.white))
+                        }).padding(EdgeInsets(top: 20, leading: 0, bottom: 0, trailing: 30))
                     }
                 }
                 Spacer()
@@ -72,22 +71,18 @@ struct CameraView: View {
                     // if taken showing save and again take button
                     if camera.isTaken{
                         // share image
-                            Button(action: {
-                                isLoading = true
-                                items.removeAll()
-                                items.append(camera.returnPhoto())
-                                isLoading = false // Set isLoading to false after photo is loaded
-                                sheet.toggle()
-                            }, label: {
-                                Image(systemName: "square.and.arrow.up")
-                                    .foregroundColor(.black)
-                                    .padding()
-                                    .fontWeight(.semibold)
-                                    .background(Color.white)
-                                    .clipShape(Capsule())
-                                    .padding(.vertical,10)
-                                    .padding(.horizontal,20)
-                            })
+                        Button(action: {
+                            isLoading = true
+                            items.removeAll()
+                            items.append(camera.returnPhoto())
+                            isLoading = false // Set isLoading to false after photo is loaded
+                            sheet.toggle()
+                        }, label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(.black)
+                                .padding()
+                                .background(Circle().fill(Color.white))
+                        })
                         .sheet(isPresented: $sheet, content: {
                             ShareSheet(items: items)
                         })
@@ -95,57 +90,47 @@ struct CameraView: View {
                             isLoading ? ProgressView() : nil
                         )
                         
-                        Spacer()
-                        Spacer()
-                        
                         Button(action: {if !camera.isSaved{camera.savePic()}}, label: {
                             Text(camera.isSaved ? "Saved" : "Save")
                                 .foregroundColor(.black)
                                 .fontWeight(.semibold)
                                 .padding(.vertical,10)
                                 .padding(.horizontal,10)
+                                .padding(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
                                 .background(Color.white)
                                 .clipShape(Capsule())
                                 .padding()
                                 .font(.system(size: 25))
                             
-                        })
-                        Spacer()
-                        Spacer()
-
-                        HStack {
-                        Menu {
-                            Button(action: {
-                                camera.sepiaFilter()
-                            }, label: {
-                                Text("Sepia")
-                            })
-                            Button(action: {
-                                camera.colorFilter()
-                            }, label: {
-                                Text("Color Invert")
-                            })
-                            Button(action: {
-                                camera.blurFilter()
-                            }, label: {
-                                Text("Blur")
-                            })
-                        } label: {
-                            Label(
-                                title: {  },
-                                icon: { Image(systemName: "plus") }
-                            ).padding(.vertical,20)
-                                .padding(.horizontal,20)
-                                .foregroundColor(.black)
-                                .background(Color.white)
-                                .clipShape(Capsule())
-                                .fontWeight(.semibold)
-                                .padding()
-                        }
+                        }).padding(EdgeInsets(top: 0, leading: 40, bottom: 0, trailing: 40))
                         
-                    }
-                }
-                    else {
+                        HStack {
+                            Menu {
+                                Button(action: {
+                                    camera.sepiaFilter()
+                                }, label: {
+                                    Text("Sepia")
+                                })
+                                Button(action: {
+                                    camera.colorFilter()
+                                }, label: {
+                                    Text("Color Invert")
+                                })
+                                Button(action: {
+                                    camera.blurFilter()
+                                }, label: {
+                                    Text("Blur")
+                                })
+                            } label: {
+                                Label(
+                                    title: {  },
+                                    icon: { Image(systemName: "plus") }
+                                ).padding()
+                                    .foregroundColor(.black)
+                                    .background(Circle().fill(Color.white))
+                            }
+                        }
+                    } else {
                         Spacer()
                         Button(action: {
                             camera.takePic {
@@ -159,7 +144,6 @@ struct CameraView: View {
                         })
                         Spacer()
                     }
-                    
                 }.frame(height: 75)
             }
         }
