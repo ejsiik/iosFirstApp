@@ -27,14 +27,15 @@ struct CameraView: View {
     @State var items : [Any] = []
     @State var sheet = false
     @State private var isLoading = false
-        
+    @State private var displayCapturedImage = false // to check if it is still rendered
+
     var body: some View {
         ZStack {
             CameraPreview(camera: camera)
                     .ignoresSafeArea(.all)
                     .opacity(camera.isTaken ? 0.0 : 1.0)
             
-            if camera.isTaken {
+            if camera.isTaken && displayCapturedImage {
                 Image(uiImage: UIImage(data: camera.picData) ?? UIImage())
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -46,16 +47,17 @@ struct CameraView: View {
                         .aspectRatio(contentMode: .fill)
                         .ignoresSafeArea()
                 }
-                //camera preview
-                CameraPreview(camera: camera)
-                .ignoresSafeArea(.all, edges: .all)
             }
 
             VStack {
                 if camera.isTaken {
                     HStack {
                         Spacer()
-                        Button(action: camera.reTake, label: {
+                        Button(action: {
+                            camera.reTake {
+                                displayCapturedImage = false
+                            }
+                        },label: {
                             Image(systemName: "arrow.triangle.2.circlepath.camera")
                                 .foregroundColor(.black)
                                 .padding()
@@ -145,7 +147,11 @@ struct CameraView: View {
                 }
                     else {
                         Spacer()
-                        Button(action: camera.takePic, label: {
+                        Button(action: {
+                            camera.takePic {
+                                displayCapturedImage = true
+                            }
+                        },label: {
                             ZStack {
                                 Circle().fill(Color.white).frame(width:65,height: 65)
                                 Circle().stroke(Color.white,lineWidth: 2).frame(width:75,height: 75)
@@ -176,7 +182,6 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
 }
 
-
 class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     
     @Published var isTaken = false
@@ -184,13 +189,10 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var session = AVCaptureSession()
     
     @Published var alert = false
-    
     // since were going to read pic data...
     @Published var output = AVCapturePhotoOutput()
-    
     // preview...
     @Published var preview: AVCaptureVideoPreviewLayer!
-    
     // Pic Data
     @Published var isSaved = false
     
@@ -201,47 +203,38 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var filteredImage: UIImage?
     
     @Published var backgroundImage: UIImage?
-         
     
-    func Check(){
-        //first checking camera has got permission...
+    func Check() {
+        // ...
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             setUp()
             return
-            //Setting Up Session
         case .notDetermined:
-            //returning for permission...
-            AVCaptureDevice.requestAccess(for: .video) {
-                (status) in
+            AVCaptureDevice.requestAccess(for: .video) { (status) in
                 if status {
                     self.setUp()
                 }
             }
         case .denied:
             DispatchQueue.main.async {
-                    if let url = URL(string:UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                    }
+                if let url = URL(string:UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
                 }
-                break
+            }
+            break
         default:
             return
         }
     }
     
-    
-    func setUp(){
+    func setUp() {
         DispatchQueue.global(qos: .background).async {
-            // setting up camera...
-            do{
-                
-                // setting configs...
+            do {
                 self.session.beginConfiguration()
                 
-                // change for own...
                 var defaultCamera: AVCaptureDevice? {
-                    if let device = AVCaptureDevice.default(.builtInDualCamera, for: .video, position: .back){
+                    if let device = AVCaptureDevice.default(.builtInDualCamera, for: .video, position: .back) {
                         print("Built-in dual camera found: \(device)")
                         return device
                     }
@@ -249,27 +242,22 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                         print("Built-in wide angle camera found: \(device)")
                         return device
                     }
-                    
                     return nil
                 }
                 
-                // need phisycal device! not simulator
                 let input = try AVCaptureDeviceInput(device: defaultCamera!)
-                
-                // checking and adding to session...
-                
                 if self.session.canAddInput(input){
                     self.session.addInput(input)
                 }
-                
-                // same for output...
-                
                 if self.session.canAddOutput(self.output){
                     self.session.addOutput(self.output)
                 }
-                
                 self.session.commitConfiguration()
                 
+                // Start running session in the background
+                DispatchQueue.global(qos: .background).async {
+                    self.session.startRunning()
+                }
             }
             catch {
                 print(error.localizedDescription)
@@ -277,54 +265,48 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         }
     }
     
-    // take and retake functions...
-    func takePic(){
-            let settings = AVCapturePhotoSettings()
-            self.output.capturePhoto(with: settings, delegate: self)
-            
-            DispatchQueue.main.async {
-                withAnimation{self.isTaken.toggle()}
-            }
-            if let filteredImage = self.filteredImage {
-                self.backgroundImage = filteredImage
-            }
+    
+    func takePic(completion: @escaping () -> Void) {
+        let settings = AVCapturePhotoSettings()
+        self.output.capturePhoto(with: settings, delegate: self)
+        
+        DispatchQueue.main.async {
+            withAnimation { self.isTaken.toggle() }
+        }
+        if let filteredImage = self.filteredImage {
+            self.backgroundImage = filteredImage
+        }
+        completion()
     }
     
-    func reTake() {
+    func reTake(completion: @escaping () -> Void) {
         DispatchQueue.main.async {
-            withAnimation{self.isTaken.toggle()}
+            withAnimation { self.isTaken.toggle() }
             self.isSaved = false
             self.picData = Data()
-            self.session.startRunning()
+            DispatchQueue.global(qos: .background).async {
+                self.session.startRunning()
+            }
         }
+        completion()
     }
     
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         if let error = error {
-                print("Error capturing photo: \(error)")
-                return
-            }
-            
-            guard let imageData = photo.fileDataRepresentation() else {
-                print("Error converting photo to data")
-                return
-            }
-            
-            self.picData = imageData
-            print("pic taken...")
+            print("Error capturing photo: \(error)")
+            return
+        }
         
-            //DispatchQueue.global(qos: .background).async {
-                self.session.stopRunning()
-            //}
+        guard let imageData = photo.fileDataRepresentation() else {
+            print("Error converting photo to data")
+            return
+        }
         
-        func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-            if let error = error {
-                print(error.localizedDescription)
-                return
-            }
-            print("Photo taken")
-            guard let imageData = photo.fileDataRepresentation() else { return }
-            self.picData = imageData
+        self.picData = imageData
+        print("pic taken...")
+        
+        DispatchQueue.global(qos: .background).async {
+            self.session.stopRunning()
         }
     }
     
@@ -337,7 +319,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
             print("Failed to save image: Invalid data")
             print(self.picData)
         }
-
+        
     }
     
     func returnPhoto() -> UIImage {
@@ -349,7 +331,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         guard let cgImage = image.cgImage else { return nil }
         let ciContext = CIContext()
         let ciImage = CIImage(cgImage: cgImage)
-
+        
         // Apply filter
         switch(filterName) {
         case "sepia":
@@ -366,10 +348,10 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         guard let outputCIImage = filter?.outputImage else { return nil }
         guard let outputCGImage = ciContext.createCGImage(outputCIImage, from: outputCIImage.extent) else { return nil }
         let outputImage = UIImage(cgImage: outputCGImage, scale: image.scale, orientation: image.imageOrientation)
-
+        
         return outputImage
     }
-
+    
     func sepiaFilter() {
         filterName = "sepia"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
@@ -404,7 +386,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
                     self.picData = rotatedImageData
                 }
             }
-        
+            
         } else {
             print("Failed to save image: Invalid data")
             print(self.picData)
@@ -435,7 +417,7 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         guard let image = filteredImage else { return }
         backgroundImage = image
     }
-
+    
     func returnBackgroundImage() -> UIImage? {
         return backgroundImage
     }
@@ -455,9 +437,9 @@ struct CameraPreview: UIViewRepresentable {
             camera.preview.videoGravity = .resizeAspectFill
             view.layer.addSublayer(camera.preview)
         }
-        //DispatchQueue.global(qos: .background).async {
+        DispatchQueue.global(qos: .background).async {
             camera.session.startRunning()
-        //}
+        }
         
         return view
     }
