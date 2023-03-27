@@ -30,12 +30,29 @@ struct CameraView: View {
         
     var body: some View {
         ZStack {
-            //camera preview
             CameraPreview(camera: camera)
-            .ignoresSafeArea(.all, edges: .all)
+                    .ignoresSafeArea(.all)
+                    .opacity(camera.isTaken ? 0.0 : 1.0)
             
+            if camera.isTaken {
+                Image(uiImage: UIImage(data: camera.picData) ?? UIImage())
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .ignoresSafeArea()
+            } else {
+                if let image = camera.returnBackgroundImage() {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .ignoresSafeArea()
+                }
+                //camera preview
+                CameraPreview(camera: camera)
+                .ignoresSafeArea(.all, edges: .all)
+            }
+
             VStack {
-                if camera.isTaken{
+                if camera.isTaken {
                     HStack {
                         Spacer()
                         Button(action: camera.reTake, label: {
@@ -97,19 +114,16 @@ struct CameraView: View {
                         HStack {
                         Menu {
                             Button(action: {
-                                //camera.filterName = "Sepia"
                                 camera.sepiaFilter()
                             }, label: {
                                 Text("Sepia")
                             })
                             Button(action: {
-                                //camera.filterName = "Color Invert"
                                 camera.colorFilter()
                             }, label: {
                                 Text("Color Invert")
                             })
                             Button(action: {
-                                //camera.filterName = "Blur"
                                 camera.blurFilter()
                             }, label: {
                                 Text("Blur")
@@ -183,6 +197,10 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var picData = Data(count: 0)
     
     @Published var filterName = "no"
+    
+    @Published var filteredImage: UIImage?
+    
+    @Published var backgroundImage: UIImage?
          
     
     func Check(){
@@ -214,75 +232,70 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     
     
     func setUp(){
-        
-        // setting up camera...
-        do{
-            
-            // setting configs...
-            self.session.beginConfiguration()
-            
-            // change for own...
-            var defaultCamera: AVCaptureDevice? {
-                if let device = AVCaptureDevice.default(.builtInDualCamera, for: .video, position: .back){
-                    print("Built-in dual camera found: \(device)")
-                    return device
-                }
-                if let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) {
-                    print("Built-in wide angle camera found: \(device)")
-                    return device
+        DispatchQueue.global(qos: .background).async {
+            // setting up camera...
+            do{
+                
+                // setting configs...
+                self.session.beginConfiguration()
+                
+                // change for own...
+                var defaultCamera: AVCaptureDevice? {
+                    if let device = AVCaptureDevice.default(.builtInDualCamera, for: .video, position: .back){
+                        print("Built-in dual camera found: \(device)")
+                        return device
+                    }
+                    if let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) {
+                        print("Built-in wide angle camera found: \(device)")
+                        return device
+                    }
+                    
+                    return nil
                 }
                 
-                return nil
+                // need phisycal device! not simulator
+                let input = try AVCaptureDeviceInput(device: defaultCamera!)
+                
+                // checking and adding to session...
+                
+                if self.session.canAddInput(input){
+                    self.session.addInput(input)
+                }
+                
+                // same for output...
+                
+                if self.session.canAddOutput(self.output){
+                    self.session.addOutput(self.output)
+                }
+                
+                self.session.commitConfiguration()
+                
             }
-            
-            // need phisycal device! not simulator
-            let input = try AVCaptureDeviceInput(device: defaultCamera!)
-            
-            // checking and adding to session...
-            
-            if self.session.canAddInput(input){
-                self.session.addInput(input)
+            catch {
+                print(error.localizedDescription)
             }
-            
-            // same for output...
-            
-            if self.session.canAddOutput(self.output){
-                self.session.addOutput(self.output)
-            }
-            
-            self.session.commitConfiguration()
-            
-        }
-        catch {
-            print(error.localizedDescription)
         }
     }
-        // take and retake functions...
-        
+    
+    // take and retake functions...
     func takePic(){
-        DispatchQueue.global(qos: .background).async {
-            /*self.output.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
-            print(self)
-            self.session.stopRunning()*/
-            
             let settings = AVCapturePhotoSettings()
             self.output.capturePhoto(with: settings, delegate: self)
             
             DispatchQueue.main.async {
                 withAnimation{self.isTaken.toggle()}
             }
-        }
+            if let filteredImage = self.filteredImage {
+                self.backgroundImage = filteredImage
+            }
     }
     
     func reTake() {
-        DispatchQueue.global(qos: .background).async {
+        DispatchQueue.main.async {
+            withAnimation{self.isTaken.toggle()}
+            self.isSaved = false
+            self.picData = Data()
             self.session.startRunning()
-            
-            DispatchQueue.main.async {
-                withAnimation{self.isTaken.toggle()}
-                // clearing...
-                self.isSaved = false
-            }
         }
     }
     
@@ -300,10 +313,19 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
             self.picData = imageData
             print("pic taken...")
         
-            DispatchQueue.global(qos: .background).async {
+            //DispatchQueue.global(qos: .background).async {
                 self.session.stopRunning()
-            }
+            //}
         
+        func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+            if let error = error {
+                print(error.localizedDescription)
+                return
+            }
+            print("Photo taken")
+            guard let imageData = photo.fileDataRepresentation() else { return }
+            self.picData = imageData
+        }
     }
     
     func savePic(){
@@ -323,8 +345,9 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     }
     
     func applyFilter(to image: UIImage) -> UIImage? {
-        var filter = CIFilter(name: "CISepiaTone")
+        var filter = CIFilter(name: "no")
         guard let cgImage = image.cgImage else { return nil }
+        let ciContext = CIContext()
         let ciImage = CIImage(cgImage: cgImage)
 
         // Apply filter
@@ -336,16 +359,12 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         case "blur":
             filter = CIFilter(name: "CIGaussianBlur")
         default :
-            print("No filter")
+            return image
         }
         
         filter?.setValue(ciImage, forKey: kCIInputImageKey)
-//        filter?.setValue(0.8, forKey: kCIInputIntensityKey)
         guard let outputCIImage = filter?.outputImage else { return nil }
-
-        // Convert CIImage to UIImage
-        let context = CIContext()
-        guard let outputCGImage = context.createCGImage(outputCIImage, from: outputCIImage.extent) else { return nil }
+        guard let outputCGImage = ciContext.createCGImage(outputCIImage, from: outputCIImage.extent) else { return nil }
         let outputImage = UIImage(cgImage: outputCGImage, scale: image.scale, orientation: image.imageOrientation)
 
         return outputImage
@@ -354,9 +373,8 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     func sepiaFilter() {
         filterName = "sepia"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
-            //UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
             self.picData = image.pngData()! // picData is now filtered!!!
-            //self.isSaved = true
+            self.isSaved = false
             print("sepia")
             if var image = UIImage(data: self.picData) {
                 // Rotate image by 90 degrees clockwise
@@ -370,18 +388,13 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
             print("Failed to save image: Invalid data")
             print(self.picData)
         }
-        
-        // self.picData = applyFilter(to: UIImage(data: self.picData)!)
     }
     
     func blurFilter() {
         filterName = "blur"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
-            //UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-            //self.isSaved = true
-            //print("saved Sucessfully...")
             self.picData = image.pngData()! // picData is now filtered!!!
-            //self.isSaved = true
+            self.isSaved = false
             print("blur")
             if var image = UIImage(data: self.picData) {
                 // Rotate image by 90 degrees clockwise
@@ -401,11 +414,8 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     func colorFilter() {
         filterName = "color"
         if let image = applyFilter(to: UIImage(data: self.picData)!) {
-            //UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-            //self.isSaved = true
-            //print("saved Sucessfully...")
             self.picData = image.pngData()! // picData is now filtered!!!
-            //self.isSaved = true
+            self.isSaved = false
             print("color")
             if var image = UIImage(data: self.picData) {
                 // Rotate image by 90 degrees clockwise
@@ -419,6 +429,15 @@ class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
             print("Failed to save image: Invalid data")
             print(self.picData)
         }
+    }
+    
+    func saveBackgroundImage() {
+        guard let image = filteredImage else { return }
+        backgroundImage = image
+    }
+
+    func returnBackgroundImage() -> UIImage? {
+        return backgroundImage
     }
 }
     
@@ -436,8 +455,6 @@ struct CameraPreview: UIViewRepresentable {
             camera.preview.videoGravity = .resizeAspectFill
             view.layer.addSublayer(camera.preview)
         }
-        // starting session
-        //camera.session.startRunning()
         //DispatchQueue.global(qos: .background).async {
             camera.session.startRunning()
         //}
